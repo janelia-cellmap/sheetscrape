@@ -1,15 +1,16 @@
 import gspread
-from oauth2client.service_account.ServiceAccountCredentials import from_json_keyfile_name
+from oauth2client.service_account import ServiceAccountCredentials
 
 
 class GoogleSheetScraper():
     '''
-    Wraps the functionality of gspread. Handles authentication and access modes.
+    Wraps the functionality of gspread.
+    Handles authentication and access modes.
     '''
     def __init__(self, keyfile, mode='r'):
         self._keyfile = keyfile
         self._scope = self.get_scope(mode)
-        self._creds = from_json_keyfile_name(self._keyfile, self._scope)
+        self._creds = ServiceAccountCredentials.from_json_keyfile_name(self._keyfile, self._scope)
         self.client = gspread.authorize(self._creds)
 
     @staticmethod
