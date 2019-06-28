@@ -6,5 +6,5 @@ setup(
     author="Davis Bennett",
     packages=find_packages(exclude=["*.pyc"]),
     include_package_data=True,
-    install_requires=["oauth2client", "gspread", "Pandas"]
-    )
+    install_requires=["oauth2client", "gspread", "Pandas"],
+)
