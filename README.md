@@ -73,11 +73,14 @@ from sheetscrape.datastructures import FIBSEMDataset
 with MongoClient(f'mongodb://{un}:{pw}@{db_name}.int.janelia.org') as client:
     db = client.db
     ds = db.datasets
+    
     # set up the query-- we want all the records with the `alias` matching `Crop 33 / Mito 001` (in our case this is just 1 record).
     result = ds.find({'alias':'Crop 33 / Mito 001'})
-    # result is an interable that we need to unpack
+    
+    # `result` is an iterable that we need to unpack
     results = [f for f in result]
-    # remove the `_id` key, which a mongodb-internal thing
+    
+    # remove the mongodb-internal `_id` key
     [r.pop('_id') for r in results];
 
 # construct a FIBSEMDataset with dictionary unpacking
