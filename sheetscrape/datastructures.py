@@ -14,3 +14,12 @@ class FIBSEMDataset:
     resolution: dict
     labels: list
     parent: str
+
+    def todict(self):
+        """
+
+        :return: A dict of property: value pairs
+        """
+
+        outDict = self.__dict__
+        return outDict
