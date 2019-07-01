@@ -64,7 +64,7 @@ with MongoClient(f'mongodb://{un}:{pw}@{db_name}.int.janelia.org') as client:
     db = client.db
     db.datasets.insert_many(flat)
 ```
-## Generating FIBSEMDatasets from the Monogo database
+## Generating FIBSEMDatasets from the Mongo database
 Now suppose you are processing Crop 33 and you want to get all the metadata for that crop. Now that the database has been populated, you can just make the right query to the database:
 
 ```python
