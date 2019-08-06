@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 from pathlib import Path
 from ..datastructures import FIBSEMDataset
 
@@ -114,9 +113,9 @@ def decapitate(df, neck):
 
 def get_datasets(head, body):
     """
-    Given head and body Dataframes, return a dictionary of lists of `FIBSEMDataset` objects, with one entry in the dict per 
-    parent data file, and one `FIBSEMDataset` object per crop. This function recurses when the body contains entries from 
-    multiple parent datasets; it will call itself on partitioned subsets of the body dataframe. 
+    Given head and body Dataframes, return a dictionary of lists of `FIBSEMDataset` objects, with one entry in the dict
+    per parent data file, and one `FIBSEMDataset` object per crop. This function recurses when the body contains entries
+    from parent datasets; it will call itself on partitioned subsets of the body dataframe.
     """
     parent_files = get_parent_files(head, body)
     parent_file_column = np.where(head == "Parent File")[1][0]
