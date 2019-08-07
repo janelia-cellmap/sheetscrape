@@ -102,7 +102,7 @@ def get_crop_file(crop_short_name):
     pass
 
 
-def decapitate(df, neck):
+def decap(df, neck):
     """
     Separate the head from the body of a dataframe
     """
@@ -156,5 +156,5 @@ def get_datasets(head, body):
 
 
 def parse(df):
-    head, body = decapitate(df, neck=3)
+    head, body = decap(df, neck=3)
     return get_datasets(head, body)
