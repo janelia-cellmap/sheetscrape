@@ -1,21 +1,30 @@
 import numpy as np
 from pathlib import Path
+import pandas as pd
 from ..datastructures import FIBSEMDataset
 
+columns = dict()
+columns["parent_alias"] = "Cell/Tissue Short Name"
+columns["crop_alias"] = "Crop Short Name"
+columns["voxel_size"] = "Voxel Size (nm)"
+columns["roi_size"] = "ROI Size (pixel)"
+columns["roi_origins"] = "ROI Coordinates"
+columns["biotype"] = "Cell/Tissue Type"
+columns["parent_file"] = "File Paths"
+columns["label_bounds"] = ("ECS", "Microtubules in")
 
-def is_n5(string):
-    return Path(string).suffix == ".n5"
+
+def clean_filename(string):
+    return string.strip()
 
 
 def get_parent_aliases(head, body):
-    shortname_column_name = "Cell/Tissue Short Name"
-    aliases = list(get_named_column(shortname_column_name, head, body))
+    aliases = get_named_column(columns["parent_alias"], head, body)
     return aliases
 
 
 def get_crop_aliases(head, body):
-    crop_alias_column_name = "Crop Short Name"
-    aliases = list(get_named_column(crop_alias_column_name, head, body))
+    aliases = get_named_column(columns["crop_alias"], head, body)
     return aliases
 
 
@@ -28,8 +37,13 @@ def get_named_xyz_triple(name, head, body):
     init_col = np.where(mask)[1][0]
     indexer = slice(init_col, init_col + 3)
     keys = head.iloc[-1, indexer]
-    vals = body.iloc[:, indexer]
 
+    if body.ndim == 1:
+        body = pd.DataFrame(body).T
+
+    vals = body.iloc[:, indexer].copy()
+
+    vals[vals == ""] = -1
     try:
         vals_npy = vals.astype("int").to_numpy()
     except ValueError:
@@ -46,12 +60,18 @@ def get_named_column(name, head, body):
         return None
 
     idx = np.where(mask)
-    return list(body.iloc[:, idx[1][0]])
+    if body.ndim == 1:
+        body = pd.DataFrame(body).T
+
+    return body.iloc[:, idx[1][0]].to_list()[0]
 
 
 def get_labels(head, body):
-    first_label = "ECS"
-    last_label = "Microtubules in"
+
+    if body.ndim == 1:
+        body = pd.DataFrame(body).T
+
+    first_label, last_label = columns["label_bounds"]
     first_row, first_col = np.where(head == first_label)
     first_row = first_row[0]
     first_col = first_col[0]
@@ -71,31 +91,23 @@ def parse_labels(head, body):
 
 
 def get_resolutions(head, body):
-    vox_size_column_name = "Voxel Size (nm)"
-    return get_named_xyz_triple(vox_size_column_name, head, body)
+    return get_named_xyz_triple(columns["voxel_size"], head, body)
 
 
 def get_roi_sizes(head, body):
-    roi_size_column_name = "ROI Size (pixel)"
-    return get_named_xyz_triple(roi_size_column_name, head, body)
+    return get_named_xyz_triple(columns["roi_size"], head, body)
 
 
 def get_roi_origins(head, body):
-    roi_size_column_name = "ROI Coordinates"
-    return get_named_xyz_triple(roi_size_column_name, head, body)
+    return get_named_xyz_triple(columns["roi_origins"], head, body)
 
 
 def get_biotype(head, body):
-    biotype_column_name = "Cell/Tissue Type"
-    return get_named_column(biotype_column_name, head, body)
+    return get_named_column(columns["biotype"], head, body)
 
 
-def get_parent_files(head, body):
-    parent_file_column_name = "Parent File"
-    parent_files = list(
-        filter(is_n5, set(get_named_column(parent_file_column_name, head, body)))
-    )
-    return parent_files
+def get_parent_file(head, body):
+    return clean_filename(get_named_column(columns["parent_file"], head, body))
 
 
 def get_crop_file(crop_short_name):
@@ -113,46 +125,29 @@ def decap(df, neck):
 
 def get_datasets(head, body):
     """
-    Given head and body Dataframes, return a dictionary of lists of `FIBSEMDataset` objects, with one entry in the dict
-    per parent data file, and one `FIBSEMDataset` object per crop. This function recurses when the body contains entries
-    from parent datasets; it will call itself on partitioned subsets of the body dataframe.
+    Given a head and body dataframes, decompose each row of the body dataframe into a FIBSEMDataset object.
     """
-    parent_files = get_parent_files(head, body)
-    parent_file_column = np.where(head == "Parent File")[1][0]
-    result = dict()
+    results = []
+    for idx, row in body.iterrows():
+        parent_file = get_parent_file(head, row)
+        crop_alias = get_crop_aliases(head, row)
+        biotype = get_biotype(head, row)
+        resolution = get_resolutions(head, row)
+        roi_size = get_roi_sizes(head, row)
+        roi_origin = get_roi_origins(head, row)
+        labels = get_labels(head, row)
 
-    if len(parent_files) == 1:
-        # We have entries from a single parent file
-        subresult = []
-        path = parent_files[0]
-
-        parent_alias = get_parent_aliases(head, body)[0]
-        crop_aliases = get_crop_aliases(head, body)
-        biotypes = get_biotype(head, body)
-        resolutions = get_resolutions(head, body)
-        roi_sizes = get_roi_sizes(head, body)
-        roi_origins = get_roi_origins(head, body)
-        labels = get_labels(head, body)
-
-        for ind in range(body.shape[0]):
-            ds = FIBSEMDataset(
-                biotype=biotypes[ind],
-                alias=crop_aliases[ind],
-                dimensions=roi_sizes[ind],
-                offset=roi_origins[ind],
-                resolution=resolutions[ind],
-                labels=labels[ind],
-                parent=path,
-            )
-            subresult.append(ds)
-        return subresult
-    else:
-        # We have entries from multiple parent files
-        for rootdir in parent_files:
-            sub_body = body[body.iloc[:, parent_file_column] == rootdir]
-            result[rootdir] = get_datasets(head, sub_body)
-
-    return result
+        ds = FIBSEMDataset(
+            biotype=biotype,
+            alias=crop_alias,
+            dimensions=roi_size,
+            offset=roi_origin,
+            resolution=resolution,
+            labels=labels,
+            parent=parent_file,
+        )
+        results.append(ds)
+    return results
 
 
 def parse(df):
