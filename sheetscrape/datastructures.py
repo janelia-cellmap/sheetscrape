@@ -5,11 +5,14 @@ from dataclasses import dataclass
 class FIBSEMDataset:
     """
     A (potentially cropped) FIBSEM Dataset. Has the following properties:
-    biotype: A string label that indicates the biological type of the data, 
+
+    biotype: A string label that indicates the biological type of the data,
     e.g., "Hela Cell" or "Mouse neurons".
 
-    alias: A (hopefully) unique name for the subregion of the dataset,
-    e.g., "Crop 10"
+    number: A numeric index that identifies the crop.
+
+    alias: A content-ful name for the subregion of the dataset,
+    e.g., "Ribosome"
 
     dimensions: A `dict` with keys specifying axes and values specifying the dimension, in pixels, of the dataset along
     each axis, e.g., {'z':10, 'y':10, 'x':10} for a 10x10x10 pixel dataset
@@ -29,12 +32,14 @@ class FIBSEMDataset:
     """
 
     biotype: str
+    number: str
     alias: str
     dimensions: dict
     offset: dict
     resolution: dict
     labels: list
     parent: str
+    completion: int
 
     def todict(self):
         """

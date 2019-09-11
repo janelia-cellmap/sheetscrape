@@ -5,6 +5,7 @@ from ..datastructures import FIBSEMDataset
 
 columns = dict()
 columns["parent_alias"] = "Cell/Tissue Short Name"
+columns['crop_number'] = "Crop Number"
 columns["crop_alias"] = "Crop Short Name"
 columns["voxel_size"] = "Voxel Size (nm)"
 columns["roi_size"] = "ROI Size (pixel)"
@@ -12,20 +13,7 @@ columns["roi_origins"] = "ROI Coordinates"
 columns["biotype"] = "Cell/Tissue Type"
 columns["parent_file"] = "File Paths"
 columns["label_bounds"] = ("ECS", "Microtubules in")
-
-
-def clean_filename(string):
-    return string.strip()
-
-
-def get_parent_aliases(head, body):
-    aliases = get_named_column(columns["parent_alias"], head, body)
-    return aliases
-
-
-def get_crop_aliases(head, body):
-    aliases = get_named_column(columns["crop_alias"], head, body)
-    return aliases
+columns["completion"] = "Completion Stage"
 
 
 def get_named_xyz_triple(name, head, body):
@@ -65,6 +53,22 @@ def get_named_column(name, head, body):
 
     return body.iloc[:, idx[1][0]].to_list()[0]
 
+
+def clean_filename(string):
+    return string.strip()
+
+
+def get_parent_aliases(head, body):
+    aliases = get_named_column(columns["parent_alias"], head, body)
+    return aliases
+
+
+def get_crop_aliases(head, body):
+    aliases = get_named_column(columns["crop_alias"], head, body)
+    return aliases
+
+def get_crop_number(head, body):
+    return get_named_column(columns['crop_number'], head, body)
 
 def get_labels(head, body):
 
@@ -110,6 +114,14 @@ def get_parent_file(head, body):
     return clean_filename(get_named_column(columns["parent_file"], head, body))
 
 
+def get_completion_stage(head, body):
+    result =  get_named_column(columns["completion"], head, body)
+    if len(result)>0:
+        result = int(result)
+    else:
+        result = -1
+    return result
+
 def get_crop_file(crop_short_name):
     pass
 
@@ -131,20 +143,23 @@ def get_datasets(head, body):
     for idx, row in body.iterrows():
         parent_file = get_parent_file(head, row)
         crop_alias = get_crop_aliases(head, row)
+        crop_number = get_crop_number(head, row)
         biotype = get_biotype(head, row)
         resolution = get_resolutions(head, row)
         roi_size = get_roi_sizes(head, row)
         roi_origin = get_roi_origins(head, row)
         labels = get_labels(head, row)
-
+        completion = get_completion_stage(head, row)
         ds = FIBSEMDataset(
             biotype=biotype,
+            number=crop_number,
             alias=crop_alias,
             dimensions=roi_size,
             offset=roi_origin,
             resolution=resolution,
             labels=labels,
             parent=parent_file,
+            completion=completion
         )
         results.append(ds)
     return results
