@@ -126,6 +126,12 @@ def get_crop_file(crop_short_name):
     pass
 
 
+def find_end(col, start):
+    tail=[ind for ind,f in enumerate(col) if ind > start and len(f) == 0]
+    result = tail[0] - 1
+    return result
+
+            
 def decap(df, neck):
     """
     Separate the head from the body of a dataframe
