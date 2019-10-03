@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-
+import datetime
 
 @dataclass
 class FIBSEMDataset:
@@ -40,6 +40,7 @@ class FIBSEMDataset:
     labels: list
     parent: str
     completion: int
+    access_date: datetime.datetime
 
     def todict(self):
         """
