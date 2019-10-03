@@ -2,6 +2,8 @@ import numpy as np
 from pathlib import Path
 import pandas as pd
 from ..datastructures import FIBSEMDataset
+from datetime import datetime
+from functools import partial
 
 columns = dict()
 columns["parent_alias"] = "Cell/Tissue Short Name"
@@ -15,10 +17,14 @@ columns["parent_file"] = "File Paths"
 columns["label_bounds"] = ("ECS", "Microtubules in")
 columns["completion"] = "Completion Stage"
 
+type_converters = dict()
+type_converters[None] = lambda v: v
+type_converters['int'] = int
+type_converters['float'] = float
 
-def get_named_xyz_triple(name, head, body):
+def get_named_xyz_triple(name, head, body, val_type=None):
     mask = head == name
-
+    type_converter = type_converters[val_type]
     if not np.any(mask):
         return None
 
@@ -37,7 +43,8 @@ def get_named_xyz_triple(name, head, body):
     except ValueError:
         print(f"Problem converting {vals} to numpy array")
         return None
-    results = tuple(dict(zip(keys, val)) for val in vals_npy)
+
+    results = tuple(dict(zip(keys, list(map(type_converter, val))))for val in vals_npy)
     return results
 
 
@@ -51,7 +58,7 @@ def get_named_column(name, head, body):
     if body.ndim == 1:
         body = pd.DataFrame(body).T
 
-    return body.iloc[:, idx[1][0]].to_list()[0]
+    return body.iloc[:, idx[1][0]].to_list()
 
 
 def clean_filename(string):
@@ -87,23 +94,28 @@ def get_labels(head, body):
 
 def parse_labels(head, body):
     indices = []
+    flags = 'X', '/', '-', '!'
+    label_keys = 'present_annotated', 'present_unannotated', 'absent_annotated', 'present_partial_annotation'
+    label_dict = dict()
+
     for r in range(body.shape[0]):
-        mask = body.iloc[r] == "X"
-        inds_ = np.where(mask)[0]
-        indices.append((inds_, tuple(head[mask])))
-    return indices
+        for flag, label_key in zip(flags, label_keys):
+            mask = body.iloc[r] == flag
+            inds_ = (np.where(mask)[0] + 1).tolist()
+            label_dict[label_key] = list(zip(inds_, tuple(head[mask])))
+    return label_dict
 
 
 def get_resolutions(head, body):
-    return get_named_xyz_triple(columns["voxel_size"], head, body)
+    return get_named_xyz_triple(columns["voxel_size"], head, body, val_type='float')
 
 
 def get_roi_sizes(head, body):
-    return get_named_xyz_triple(columns["roi_size"], head, body)
+    return get_named_xyz_triple(columns["roi_size"], head, body, val_type='int')
 
 
 def get_roi_origins(head, body):
-    return get_named_xyz_triple(columns["roi_origins"], head, body)
+    return get_named_xyz_triple(columns["roi_origins"], head, body, val_type='int')
 
 
 def get_biotype(head, body):
@@ -111,33 +123,42 @@ def get_biotype(head, body):
 
 
 def get_parent_file(head, body):
-    return clean_filename(get_named_column(columns["parent_file"], head, body))
+    return get_named_column(columns["parent_file"], head, body)
 
 
 def get_completion_stage(head, body):
-    result =  get_named_column(columns["completion"], head, body)
-    if len(result)>0:
-        result = int(result)
-    else:
-        result = -1
+    result = get_named_column(columns["completion"], head, body)
+
+    for r in result:
+        if len(r)>0:
+            r = int(r)
+        else:
+            r = -1
     return result
 
 def get_crop_file(crop_short_name):
     pass
 
-
-def find_end(col, start):
-    tail=[ind for ind,f in enumerate(col) if ind > start and len(f) == 0]
-    result = tail[0] - 1
-    return result
+def get_end(head, body, column_name):
+    """
+    Return the first index where the column is empty
+    """
+    end = get_named_column(column_name, head, body).index('')
+    return end
 
             
-def decap(df, neck):
+def decap(df, neck, end_func=None):
     """
     Separate the head from the body of a dataframe
     """
+    if end_func is None:
+        end_func = lambda h, b: len(b) - 1
+
     head = df.iloc[:neck]
     body = df.iloc[neck:]
+    end = end_func(head, body)
+    body = body[:end]
+
     return head, body
 
 
@@ -147,15 +168,15 @@ def get_datasets(head, body):
     """
     results = []
     for idx, row in body.iterrows():
-        parent_file = get_parent_file(head, row)
-        crop_alias = get_crop_aliases(head, row)
-        crop_number = get_crop_number(head, row)
-        biotype = get_biotype(head, row)
-        resolution = get_resolutions(head, row)
-        roi_size = get_roi_sizes(head, row)
-        roi_origin = get_roi_origins(head, row)
+        parent_file = get_parent_file(head, row)[0]
+        crop_alias = get_crop_aliases(head, row)[0]
+        crop_number = get_crop_number(head, row)[0]
+        biotype = get_biotype(head, row)[0]
+        resolution = get_resolutions(head, row)[0]
+        roi_size = get_roi_sizes(head, row)[0]
+        roi_origin = get_roi_origins(head, row)[0]
         labels = get_labels(head, row)
-        completion = get_completion_stage(head, row)
+        completion = get_completion_stage(head, row)[0]
         ds = FIBSEMDataset(
             biotype=biotype,
             number=crop_number,
@@ -165,12 +186,14 @@ def get_datasets(head, body):
             resolution=resolution,
             labels=labels,
             parent=parent_file,
-            completion=completion
+            completion=completion,
+            access_date=datetime.now()
         )
         results.append(ds)
     return results
 
 
 def parse(df):
-    head, body = decap(df, neck=3)
+    ef = partial(get_end, column_name = columns['parent_file'])
+    head, body = decap(df, neck=3, end_func=ef)
     return get_datasets(head, body)
