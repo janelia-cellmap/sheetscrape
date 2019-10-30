@@ -14,7 +14,7 @@ columns["roi_size"] = "ROI Size (pixel)"
 columns["roi_origins"] = "ROI Coordinates"
 columns["biotype"] = "Cell/Tissue Type"
 columns["parent_file"] = "File Paths"
-columns["label_bounds"] = ("ECS", "Microtubules in")
+columns["label_bounds"] = ("ECS", "Nucleus combined")
 columns["completion"] = "Completion Stage"
 
 type_converters = dict()
@@ -129,11 +129,12 @@ def get_parent_file(head, body):
 def get_completion_stage(head, body):
     result = get_named_column(columns["completion"], head, body)
 
-    for r in result:
+    for ind in range(len(result)):
+        r = result[ind]
         if len(r)>0:
-            r = int(r)
+            result[ind] = int(r)
         else:
-            r = -1
+            result[ind] = 0
     return result
 
 def get_crop_file(crop_short_name):
