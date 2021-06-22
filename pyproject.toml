@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "sheetscrape"
-version = "0.1.0"
+version = "0.1.1"
 description = "Tools for parsing google sheets"
 authors = ["Davis Bennett <davis.v.bennett@gmail.com>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = ">=3.7.1,<4"
 pandas = "^1.1.5"
 gspread = "^3.6.0"
 oauth2client = "^4.1.3"
